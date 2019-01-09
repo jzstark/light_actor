@@ -3,6 +3,6 @@
   (public_name actor_mirage)
   (flags (:standard -w "-50" -safe-string))
   (wrapped false)
-  (preprocess (pps lwt.ppx))
-  (libraries lwt)
+  (preprocess (pps lwt_ppx))
+  (libraries lwt lwt.unix)
 )
