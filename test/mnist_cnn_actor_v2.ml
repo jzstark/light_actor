@@ -105,12 +105,15 @@ module Impl = struct
       let ps_nn = G.copy v.nn in
       let x, y = get_next_batch () in
       (* Dense.Ndarray.S.print y; *)
-      let state = match v.state with
+
+      G.(train_generic ~params ~init_model:false ps_nn (Arr x) (Arr y)) |> ignore;
+
+      (* let state = match v.state with
         | Some state -> Actor_log.info "shit!"; G.(train_generic ~state ~params ~init_model:false v.nn (Arr x) (Arr y))
         | None       -> Actor_log.info "fuck!"; G.(train_generic ~params ~init_model:false ps_nn (Arr x) (Arr y))
       in
       Checkpoint.(state.stop <- false);
-      v.state <- Some state;
+      v.state <- Some state; *)
       (* return grad instead of weight *)
       Actor_log.info "middle...";
       Dense.Ndarray.S.print (unpack_arr (G.mkpar ps_nn).(2).(0));
@@ -118,6 +121,7 @@ module Impl = struct
       Actor_log.info "after...";
       Dense.Ndarray.S.print (unpack_arr (G.mkpar v.nn).(2).(0)); *)
       (* G.update v.nn state.gs; *)
+      v.nn <- ps_nn;
       (k, v)
     ) kv_pairs
 

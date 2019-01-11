@@ -2,10 +2,14 @@
   (public_names
     actor_param_test_0
     mnist_cnn_actor_v2
+    test_cifar
+    test_mnist
   )
   (names
     actor_param_test_0
     mnist_cnn_actor_v2
+    test_cifar
+    test_mnist
   )
   (package actor_unix)
   (libraries
