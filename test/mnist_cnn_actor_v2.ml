@@ -36,7 +36,7 @@ let chkpt _state = ()
       ) *)
 let params = Params.config
       ~batch:(Batch.Sample 100) ~learning_rate:(Learning_Rate.Adagrad 0.005)
-      ~checkpoint:(Checkpoint.Custom chkpt) ~stopping:(Stopping.Const 1e-6) 10.
+      ~checkpoint:(Checkpoint.Custom chkpt) ~stopping:(Stopping.Const 1e-6) 3.
 
 (* Utilities *)
 
@@ -53,13 +53,13 @@ let delta_nn nn0 nn1 =
 
 let get_next_batch () =
   let x, _, y = Dataset.load_cifar_train_data 1 in
-  (* let col_num = (Owl.Dense.Ndarray.S.shape x).(0) in
-  let a = Array.init col_num (fun i -> i) in
-  let a = Owl_stats.sample a 200 |> Array.to_list in
-  let _ = List.map (fun x -> Printf.fprintf stderr "%d " x) a in
-  Owl_dense_ndarray.S.get_fancy [L a; R []; R []; R []] x,
-  Owl_dense_matrix.S.get_fancy  [L a; R []] y *)
-  Dataset.draw_samples_cifar x y 200
+  Dataset.draw_samples_cifar x y 500
+
+let print_conv_weight nn =
+  (G.mkpar nn).(2).(0)
+  |> unpack_arr
+  |> Dense.Ndarray.S.get_slice [[0];[0];[];[]]
+  |> Dense.Ndarray.S.print
 
 
 module Impl = struct
@@ -99,15 +99,14 @@ module Impl = struct
     (* should contain only one kvpair in this case *)
     Array.map (fun (k, v) ->
       Actor_log.info "push: %s, %s" k (G.get_network_name v.nn);
-      Actor_log.info "before...";
-      Dense.Ndarray.S.print (unpack_arr (G.mkpar v.nn).(2).(0));
-
       let ps_nn = G.copy v.nn in
+
+      Actor_log.info "before";
+      print_conv_weight v.nn;
+
       let x, y = get_next_batch () in
       (* Dense.Ndarray.S.print y; *)
-
       G.(train_generic ~params ~init_model:false ps_nn (Arr x) (Arr y)) |> ignore;
-
       (* let state = match v.state with
         | Some state -> Actor_log.info "shit!"; G.(train_generic ~state ~params ~init_model:false v.nn (Arr x) (Arr y))
         | None       -> Actor_log.info "fuck!"; G.(train_generic ~params ~init_model:false ps_nn (Arr x) (Arr y))
@@ -115,13 +114,11 @@ module Impl = struct
       Checkpoint.(state.stop <- false);
       v.state <- Some state; *)
       (* return grad instead of weight *)
-      Actor_log.info "middle...";
-      Dense.Ndarray.S.print (unpack_arr (G.mkpar ps_nn).(2).(0));
-      (* delta_nn v.nn ps_nn;
-      Actor_log.info "after...";
-      Dense.Ndarray.S.print (unpack_arr (G.mkpar v.nn).(2).(0)); *)
-      (* G.update v.nn state.gs; *)
-      v.nn <- ps_nn;
+      delta_nn v.nn ps_nn;
+
+      Actor_log.info "after";
+      print_conv_weight v.nn;
+
       (k, v)
     ) kv_pairs
 
@@ -133,16 +130,19 @@ module Impl = struct
       let par0 = G.mkpar u.nn in
       let par1 = G.mkpar v.nn in
 
-      (* Actor_log.info "before...";
-      Dense.Ndarray.S.print (unpack_arr (G.mkpar v.nn).(2).(0)); *)
+      Actor_log.info "before (u)...";
+      print_conv_weight u.nn;
+
+      Actor_log.info "before (v)...";
+      print_conv_weight v.nn;
 
       Owl_utils.aarr_map2 (fun a0 a1 ->
         Maths.(a0 + a1)
       ) par0 par1
       |> G.update v.nn;
 
-      (* Actor_log.info "after...";
-      Dense.Ndarray.S.print (unpack_arr (G.mkpar v.nn).(2).(0)); *)
+      Actor_log.info "after...";
+      print_conv_weight v.nn;
       (k, v)
     ) kv_pairs
 
