@@ -45,6 +45,8 @@ module Impl = struct
 
   let pull updates = updates
 
+  (* let stop _kvs = true *)
+
 end
 
 

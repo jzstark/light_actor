@@ -79,3 +79,10 @@ let set_step book uuid step =
     n.step <- step
   else
     failwith ("Actor_book.set_step " ^ uuid)
+
+
+(* returning all the values might not be a good choice sometimes *)
+let get_all_uuids book =
+  Hashtbl.fold (fun k _v acc ->
+    Array.append acc [| k |]
+  ) book [||]

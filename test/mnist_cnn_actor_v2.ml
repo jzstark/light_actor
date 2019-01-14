@@ -75,7 +75,7 @@ let make_network () =
 let chkpt _state = ()
 let params = Params.config
   ~batch:(Batch.Sample 100) ~learning_rate:(Learning_Rate.Adagrad 0.005)
-  ~checkpoint:(Checkpoint.Custom chkpt) ~stopping:(Stopping.Const 1e-6) 3.
+  ~checkpoint:(Checkpoint.Custom chkpt) ~stopping:(Stopping.Const 1e-6) 1.
 
 (* Utilities *)
 
@@ -132,7 +132,7 @@ module Impl = struct
       let value = (get [|key|]).(0) in
       let tasks = [|(key, value)|] in
       set tasks;
-      Actor_log.info "node: %s schd" node;
+      Actor_log.debug "node: %s schd" node;
       (node, tasks)
     ) nodes
 
@@ -140,7 +140,7 @@ module Impl = struct
   (* on worker *)
   let push kv_pairs =
     Array.map (fun (k, v) ->
-      Actor_log.info "push: %s, %s" k (G.get_network_name v.nn);
+      Actor_log.debug "push: %s, %s" k (G.get_network_name v.nn);
       let ps_nn = G.copy v.nn in
       let x, y = get_next_batch () in
       let state = match v.state with
@@ -161,7 +161,7 @@ module Impl = struct
   (* on server *)
   let pull kv_pairs =
     Array.map (fun (k, v) ->
-      Actor_log.info "push: %s, %s" k (G.get_network_name v.nn);
+      Actor_log.debug "push: %s, %s" k (G.get_network_name v.nn);
       let u = (get [|k|]).(0) in
       let par0 = G.mkpar u.nn in
       let par1 = G.mkpar v.nn in
@@ -171,6 +171,16 @@ module Impl = struct
       |> G.update v.nn;
       (k, v)
     ) kv_pairs
+
+
+  (* let stop kv_pairs =
+    let _, v = kv_pairs.(0) in
+    match v.state with
+    | Some state ->
+        let len = Array.length state.loss in
+        let loss = state.loss.(len - 1) |> unpack_flt in
+        if (loss < 2.5) then true else false
+    | None       -> false *)
 
 end
 

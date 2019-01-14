@@ -18,6 +18,25 @@ module Make
     Net.send s_addr s
 
 
+  (* let heartbeat s_addr c_uuid c_addr =
+    let rec loop i =
+      try%lwt (
+        let%lwt () = Sys.sleep 10. in
+        Actor_log.debug ">>> %s Heartbeat #%i" s_addr i;
+        let s = encode_message c_uuid c_addr (Heartbeat i) in
+        let%lwt () = Net.send s_addr s in
+        loop (i + 1)
+      ) with Lwt.Canceled ->
+        Lwt.return ()
+    in
+    loop 0 *)
+    (* try%lwt loop 0 with Lwt.Canceled -> Lwt.return () *)
+    (* match Lwt.state main_thd with
+    | Lwt.Return _ -> Actor_log.info "return"; Lwt.return ()
+    | Lwt.Sleep  -> Actor_log.info "sleep"; loop (i + 1)
+    | Lwt.Fail _ -> Actor_log.info "fail"; loop (i + 1) *)
+
+
   let heartbeat s_addr c_uuid c_addr =
     let rec loop i =
       let%lwt () = Sys.sleep 10. in
@@ -41,7 +60,7 @@ module Make
       )
     | Exit code -> (
         Actor_log.debug "<<< %s Exit %i" m.uuid code;
-        Lwt.return ()
+        Lwt.fail (Lwt.Canceled)
       )
     | PS_Schd tasks -> (
         Actor_log.debug "<<< %s PS_Schd" m.uuid;
@@ -64,10 +83,14 @@ module Make
     let%lwt () = register context.server_addr uuid addr in
 
     (* start client service *)
-    let thread_0 = heartbeat context.server_addr uuid addr in
-    let thread_1 = Net.listen addr (process context) in
-    let%lwt () = thread_0 in
-    let%lwt () = thread_1 in
+    let thread_0 = Net.listen addr (process context) in
+    let thread_1 = heartbeat context.server_addr uuid addr in
+
+    (* Lwt.on_cancel thread_1 (fun () -> Actor_log.info "foo");
+    Lwt.on_cancel thread_0 (fun () -> Actor_log.info "foo!");
+    Lwt.on_termination thread_0 (fun () -> Actor_log.info "fool!"); *)
+
+    let%lwt () = Lwt.pick [thread_0; thread_1] in
 
     (* clean up when client exits *)
     let%lwt () = Net.exit () in

@@ -44,8 +44,10 @@ let listen addr callback =
   let rec loop () =
     let%lwt parts = Zmq_lwt.Socket.recv_all lwt_sock in
     let data = List.nth parts 1 in
-    let%lwt () = callback data in
-    loop ()
+
+    try%lwt (
+      let%lwt () = (callback data) in loop ()
+    ) with Lwt.Canceled -> Lwt.return ()
   in
 
   let%lwt () = loop () in
