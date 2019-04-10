@@ -74,7 +74,9 @@ module Make
       let%lwt () = thread_1 in
       Lwt.return ()
     )
-    with _ -> (
+    with e -> (
+      let msg = Printexc.to_string e in
+      Actor_log.debug "Error: %s" msg;
       (* clean up when client exits *)
       Actor_log.debug "%s exits" uuid;
       let%lwt () = Sys.sleep 1. in

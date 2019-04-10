@@ -1,0 +1,10 @@
+(executables
+  (public_names actor_lda)
+  (names actor_lda)
+  (package actor_unix)
+  (libraries
+    owl
+    actor
+    actor_unix
+  )
+)
