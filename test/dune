@@ -1,11 +1,9 @@
 (executables
   (public_names
-    actor_param_test_0
-    actor_param_test_dnn
+    actor_dnn
   )
   (names
-    actor_param_test_0
-    actor_param_test_dnn
+    actor_dnn
   )
   (package actor_unix)
   (libraries
