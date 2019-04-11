@@ -14,7 +14,7 @@ open CGCompiler.Neural.Algodiff
 
 type task = {
   mutable state  : Checkpoint.state option;
-  mutable nn     : network;
+  mutable weight : t array array;
 }
 
 let make_network () =
@@ -33,33 +33,38 @@ let unpack x = Algodiff.unpack_arr x |> CGCompiler.Engine.unpack_arr
 
 let chkpt _state = ()
 let params = Params.config
-    ~batch:(Batch.Mini 100) ~learning_rate:(Learning_Rate.Const 0.0001) 0.1
+    ~batch:(Batch.Mini 100) ~learning_rate:(Learning_Rate.Const 0.0005) 0.1
 
 (* Utilities *)
 
-let make_task nn = {
-  state = None;
-  nn;
-}
+let eval_weight w =
+  Owl_utils.aarr_map (fun x ->
+    let y = Algodiff.unpack_arr x in
+    CGCompiler.Engine.eval_arr [|y|];
+    CGCompiler.Engine.unpack_arr y |> pack (* do NOT change this line!!! *)
+  ) w
 
-let delta_nn nn0 nn1 =
-  let par0 = Graph.mkpar nn0 in
-  let par1 = Graph.mkpar nn1 in
-  let delta = Owl_utils.aarr_map2 (fun a0 a1 -> Maths.(a0 - a1)) par0 par1 in
-  Graph.update nn0 delta
+
+let make_value s w =
+  { state = s; weight = w }
+
+
+let delta_nn nn0 par1 =
+  let par0 = Graph.mkpar nn0 |> eval_weight in
+  let par1 = par1 |> eval_weight in
+  Owl_utils.aarr_map2 (fun a0 a1 -> Maths.(a0 - a1)) par0 par1
+
+
+let add_weight par0 par1 =
+  let par0 = par0 |> eval_weight in
+  let par1 = par1 |> eval_weight in
+  Owl_utils.aarr_map2 (fun a0 a1 -> Maths.(a0 - a1)) par0 par1
+
 
 let get_next_batch () =
-  let x, _, y = Dataset.load_mnist_train_data_arr () in
+  let x, _, y = Dataset.load_mnist_test_data_arr () in
   (* let x, y = Dataset.draw_samples_cifar x y 500 in *)
   x, y
-
-
-(* for debugging only .. *)
-(* let print_conv_weight nn =
-  (Graph.mkpar nn).(2).(0)
-  |> unpack_arr
-  |> Dense.Ndarray.S.get_slice [[0];[0];[];[]]
-  |> Dense.Ndarray.S.print *)
 
 
 module Impl = struct
@@ -70,22 +75,24 @@ module Impl = struct
 
   type model = (key, value) Hashtbl.t
 
-  let start_t = ref 0 (* used in stop function #2 *)
-
   let model : model =
     let nn = make_network () in
     Graph.init nn;
+    let weight = Graph.(copy nn |> mkpar |> eval_weight) in
     let htbl = Hashtbl.create 10 in
-    Hashtbl.add htbl "a" (make_task (Graph.copy nn));
+    Hashtbl.add htbl "a" (make_value None weight);
     htbl
+
 
   let get keys =
     Array.map (Hashtbl.find model) keys
+
 
   let set kv_pairs =
     Array.iter (fun (key, value) ->
       Hashtbl.replace model key value
     ) kv_pairs
+
 
   (* on server *)
   let schd nodes =
@@ -97,48 +104,53 @@ module Impl = struct
       (node, tasks)
     ) nodes
 
+
   (* on worker *)
   let push kv_pairs =
+    Gc.compact ();
     Array.map (fun (k, v) ->
-      Actor_log.info "push: %s, %s" k (Graph.get_network_name v.nn);
-      let ps_nn = Graph.copy v.nn in
+      Actor_log.info "push: %s" k;
+
+      let nn = make_network () in
+      Graph.init nn;
+      Graph.update nn v.weight;
+
       let x, y = get_next_batch () in
       let x = pack x in
       let y = pack y in
-      let state = match v.state with
-        | Some state -> CGCompiler.train ~state ~params v.nn x y
-        | None       -> CGCompiler.train ~params v.nn x y
+      let _state = match v.state with
+        | Some state -> CGCompiler.train ~state ~params nn x y
+        | None       -> CGCompiler.train ~params nn x y
       in
-      Checkpoint.(state.current_batch <- 1);
-      Checkpoint.(state.stop <- false);
-      v.state <- Some state;
-      (* return gradient instead of weight *)
-      delta_nn v.nn ps_nn;
-      (k, v)
+      (* Checkpoint.(state.current_batch <- 1);
+      Checkpoint.(state.stop <- false); *)
+
+      let delta = delta_nn nn v.weight in
+      let value = make_value None delta in
+      (k, value)
     ) kv_pairs
+
 
   (* on server *)
   let pull kv_pairs =
+    Gc.compact ();
     Array.map (fun (k, v) ->
-      Actor_log.info "push: %s, %s" k (Graph.get_network_name v.nn);
-      let u = (get [|k|]).(0) in
-      let par0 = Graph.mkpar u.nn in
-      let par1 = Graph.mkpar v.nn in
-      Owl_utils.aarr_map2 (fun a0 a1 ->
-        Maths.(a0 + a1)
-      ) par0 par1
-      |> Graph.update v.nn;
-      (k, v)
+      Actor_log.info "push: %s" k;
+      let u  = (get [|k|]).(0) in
+      let u' = add_weight u.weight v.weight in
+      let value = make_value v.state u' in
+      (k, value)
     ) kv_pairs
 
-  let stop () =
-    let v = (get [|"a"|]).(0) in
+
+  let stop () = false
+    (* let v = (get [|"a"|]).(0) in
     match v.state with
     | Some state ->
         let len = Array.length state.loss in
         let loss = state.loss.(len - 1) |> unpack_flt in
         if (loss < 2.0) then true else false
-    | None       -> false
+    | None       -> false *)
 
 end
 
