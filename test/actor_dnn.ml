@@ -33,7 +33,7 @@ let unpack x = Algodiff.unpack_arr x |> CGCompiler.Engine.unpack_arr
 
 let chkpt _state = ()
 let params = Params.config
-    ~batch:(Batch.Mini 100) ~learning_rate:(Learning_Rate.Const 0.0005) 0.1
+    ~batch:(Batch.Mini 100) ~learning_rate:(Learning_Rate.Const 0.001) 0.05
 
 (* Utilities *)
 
@@ -58,13 +58,34 @@ let delta_nn nn0 par1 =
 let add_weight par0 par1 =
   let par0 = par0 |> eval_weight in
   let par1 = par1 |> eval_weight in
-  Owl_utils.aarr_map2 (fun a0 a1 -> Maths.(a0 - a1)) par0 par1
+  Owl_utils.aarr_map2 (fun a0 a1 -> Maths.(a0 + a1)) par0 par1
 
 
 let get_next_batch () =
-  let x, _, y = Dataset.load_mnist_test_data_arr () in
-  (* let x, y = Dataset.draw_samples_cifar x y 500 in *)
+  let x, _, y = Dataset.load_mnist_train_data_arr () in
   x, y
+
+
+let test weight =
+  let network = make_network () in
+  Graph.update network weight;
+
+  let imgs, _, labels = Dataset.load_mnist_test_data () in
+  let m = Dense.Matrix.S.row_num imgs in
+  let imgs = Dense.Ndarray.S.reshape imgs [|m;28;28;1|] in
+  let eval = CGCompiler.model ~batch_size:100 network in
+
+  let mat2num x = Dense.Matrix.S.of_array (
+      x |> Dense.Matrix.Generic.max_rows
+        |> Array.map (fun (_,_,num) -> float_of_int num)
+    ) 1 m
+  in
+
+  let result = unpack (eval (pack imgs)) in
+  let pred = mat2num result in
+  let fact = mat2num labels in
+  let accu = Dense.Matrix.S.(elt_equal pred fact |> sum') in
+  Owl_log.info "Accuracy on test set: %f" (accu /. (float_of_int m))
 
 
 module Impl = struct
@@ -108,8 +129,10 @@ module Impl = struct
   (* on worker *)
   let push kv_pairs =
     Gc.compact ();
+
     Array.map (fun (k, v) ->
       Actor_log.info "push: %s" k;
+      test v.weight;
 
       let nn = make_network () in
       Graph.init nn;
@@ -119,8 +142,8 @@ module Impl = struct
       let x = pack x in
       let y = pack y in
       let _state = match v.state with
-        | Some state -> CGCompiler.train ~state ~params nn x y
-        | None       -> CGCompiler.train ~params nn x y
+        | Some state -> CGCompiler.train ~state ~params ~init_model:false nn x y
+        | None       -> CGCompiler.train ~params ~init_model:false nn x y
       in
       (* Checkpoint.(state.current_batch <- 1);
       Checkpoint.(state.stop <- false); *)
@@ -135,9 +158,13 @@ module Impl = struct
   let pull kv_pairs =
     Gc.compact ();
     Array.map (fun (k, v) ->
-      Actor_log.info "push: %s" k;
+      Actor_log.info "pull: %s" k;
       let u  = (get [|k|]).(0) in
+      (* Actor_log.info "before:";
+      test u.weight; *)
       let u' = add_weight u.weight v.weight in
+      (* Actor_log.info "after:";
+      test u'; *)
       let value = make_value v.state u' in
       (k, value)
     ) kv_pairs
@@ -195,6 +222,10 @@ let main args =
   let book = Actor_book.make () in
   Actor_book.add book "w0" "" true (-1);
   Actor_book.add book "w1" "" true (-1);
+  (* Actor_book.add book "w2" "" true (-1);
+  Actor_book.add book "w3" "" true (-1);
+  Actor_book.add book "w4" "" true (-1);
+  Actor_book.add book "w5" "" true (-1); *)
   if my_uuid <> server_uuid then
     Actor_book.set_addr book my_uuid my_addr;
 
