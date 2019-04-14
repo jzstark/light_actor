@@ -182,10 +182,16 @@ module Impl = struct
 end
 
 
-include Actor_param_types.Make(Impl)
+include Actor_param_types.Make (Impl)
 
 
-module M = Actor_param.Make (Actor_net_zmq) (Actor_sys_unix) (Impl)
+module BP = struct
+  let s = 3
+  let p = None
+end
+
+
+module M = Actor_param.Make (Actor_net_zmq) (Actor_sys_unix) (Impl) (Actor_barrier_ssp.Make (BP))
 
 
 let ip_of_uuid id =

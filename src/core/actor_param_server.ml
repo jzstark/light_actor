@@ -7,6 +7,7 @@ module Make
   (Net  : Actor_net.Sig)
   (Sys  : Actor_sys.Sig)
   (Impl : Actor_param_impl.Sig)
+  (Barrier : Actor_barrier_sig.Sig)
   = struct
 
   include Actor_param_types.Make(Impl)
@@ -32,9 +33,9 @@ module Make
 
   let schedule uuid context =
     Actor_log.debug "Schedule %s" context.my_uuid;
-    Actor_barrier_bsp.sync context.book uuid;
+    Barrier.sync context.book uuid;
     if Impl.stop () = false then (
-      let passed = Actor_barrier_bsp.pass context.book in
+      let passed = Barrier.pass context.book in
       let tasks = Impl.schd passed in
       Array.iter (fun (uuid, kv_pairs) ->
         Actor_log.debug ">>> %s PS_Schd" uuid;

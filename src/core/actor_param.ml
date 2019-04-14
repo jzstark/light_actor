@@ -7,11 +7,12 @@ module Make
   (Net  : Actor_net.Sig)
   (Sys  : Actor_sys.Sig)
   (Impl : Actor_param_impl.Sig)
+  (Barrier : Actor_barrier_sig.Sig)
   = struct
 
   include Actor_param_types.Make(Impl)
 
-  module Server = Actor_param_server.Make (Net) (Sys) (Impl)
+  module Server = Actor_param_server.Make (Net) (Sys) (Impl) (Barrier)
 
   module Client = Actor_param_client.Make (Net) (Sys) (Impl)
 
