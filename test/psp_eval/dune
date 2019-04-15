@@ -1,0 +1,14 @@
+(executables
+  (public_names
+    dnn
+  )
+  (names
+    dnn
+  )
+  (package actor_unix)
+  (libraries
+    owl
+    actor
+    actor_unix
+  )
+)

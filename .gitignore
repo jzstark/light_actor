@@ -23,3 +23,6 @@ setup.log
 .merlin
 *.install
 *.cgd
+*.exe
+*.csv
+*.log
