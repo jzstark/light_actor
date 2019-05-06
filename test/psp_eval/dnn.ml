@@ -15,9 +15,10 @@ open CGCompiler.Neural.Algodiff
 type task = {
   mutable state  : Checkpoint.state option;
   mutable weight : t array array;
+  mutable clock  : int;
 }
 
-let exp_file = "psp_exp.csv"
+let log_file = "psp_exp.csv"
 
 let make_network () =
   input [|28;28;1|]
@@ -47,8 +48,8 @@ let eval_weight w =
   ) w
 
 
-let make_value s w =
-  { state = s; weight = w }
+let make_task s w c =
+  { state = s; weight = w; clock = c}
 
 
 let delta_nn nn0 par1 =
@@ -104,7 +105,7 @@ module Impl = struct
     Graph.init nn;
     let weight = Graph.(copy nn |> mkpar |> eval_weight) in
     let htbl = Hashtbl.create 10 in
-    Hashtbl.add htbl "a" (make_value None weight);
+    Hashtbl.add htbl "a" (make_task None weight 0);
     htbl
 
 
@@ -113,17 +114,16 @@ module Impl = struct
 
 
   let set kv_pairs =
-    Array.iter (fun (key, value) ->
-
-      let accuracy = test value.weight in
-      (* let step = Actor_book.get_step context.book "server" in *)
-      let step = 0 in
+    Array.iter (fun (k, v) ->
+      (* append to log file *)
+      let accuracy = test v.weight in
       let time = Unix.gettimeofday () in
-      let oc = open_out_gen [Open_append; Open_creat] 0o666 exp_file in
-      Printf.fprintf oc "%.2f, %d, %.2f\n" accuracy step time;
+      let oc = open_out_gen [Open_append; Open_creat] 0o666 log_file in
+      Printf.fprintf oc "%.2f, %d, %.2f\n" time v.clock accuracy;
       close_out oc;
-
-      Hashtbl.replace model key value
+      (* update clock... for now. Later need to update so that, e.g., in BSP we only increase clock by one when multiple updates arrives at the same time. *)
+      v.clock <- v.clock + 1;
+      Hashtbl.replace model k v
     ) kv_pairs
 
 
@@ -160,7 +160,7 @@ module Impl = struct
       Checkpoint.(state.stop <- false); *)
 
       let delta = delta_nn nn v.weight in
-      let value = make_value None delta in
+      let value = make_task None delta v.clock in
       (k, value)
     ) kv_pairs
 
@@ -172,7 +172,7 @@ module Impl = struct
       Actor_log.info "pull: %s" k;
       let u  = (get [|k|]).(0) in
       let u' = add_weight u.weight v.weight in
-      let value = make_value v.state u' in
+      let value = make_task v.state u' v.clock in
       (k, value)
     ) kv_pairs
 

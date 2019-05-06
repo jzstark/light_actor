@@ -7,7 +7,7 @@
   )
   (package actor_unix)
   (libraries
-    owl-base
+    owl
     actor
     actor_unix
   )
