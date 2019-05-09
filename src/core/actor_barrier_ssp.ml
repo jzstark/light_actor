@@ -8,12 +8,8 @@ open Actor_book
 
 let sample nodes_kv p =
   let n = Array.length nodes_kv in
-  let idx = Actor_param_utils.lotto_select p n in
-  let choice = Array.make p nodes_kv.(0) in
-  Array.iteri (fun i idx ->
-    choice.(i) <- nodes_kv.(idx)
-  ) idx;
-  choice
+  let idx = Actor_param_utils.lotto_select p (n - 1) in
+  Array.map (Array.get nodes_kv) idx
 
 
 module Make (P : Actor_barrier_sig.Param) = struct
@@ -45,6 +41,7 @@ module Make (P : Actor_barrier_sig.Param) = struct
       )
     ) nodes_kv;
     !passed
+
 
   let sync book uuid =
     let step = Actor_book.get_step book uuid in

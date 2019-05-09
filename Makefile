@@ -8,7 +8,6 @@ depend depends:
 .PHONY: build
 build: depends
 	dune build @install
-	cp _build/default/test/psp_eval/dnn.exe test/psp_eval
 
 .PHONY: test
 test: depends

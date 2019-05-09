@@ -51,6 +51,6 @@ let rand_select list n =
     aux (min n len) [] list len;;
 
 
-(* draw n different random numbers from the set 1..m *)
+(* draw n different random numbers from the set 0..m *)
 let lotto_select n m =
-  rand_select (range 1 m) n |> Array.of_list
+  rand_select (range 0 m) n |> Array.of_list
