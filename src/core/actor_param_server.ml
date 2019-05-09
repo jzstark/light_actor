@@ -35,7 +35,8 @@ module Make
     Actor_log.debug "Schedule %s" context.my_uuid;
     Barrier.sync context.book uuid;
     if Impl.stop () = false then (
-      let passed = Barrier.pass context.book in
+      let s, p = context.barrier_args in
+      let passed = Barrier.pass s p context.book in
       let tasks = Impl.schd passed in
       Array.iter (fun (uuid, kv_pairs) ->
         Actor_log.debug ">>> %s PS_Schd" uuid;

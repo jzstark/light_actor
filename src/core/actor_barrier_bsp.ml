@@ -5,8 +5,8 @@
 
 open Actor_book
 
+let pass _s _p book =
 
-let pass book =
   let fastest = Hashtbl.fold (fun _ node acc ->
     max node.step acc
   ) book min_int

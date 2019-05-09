@@ -6,7 +6,8 @@
 open Actor_book
 
 
-let pass book =
+let pass _s _p book =
+
   Hashtbl.fold (fun uuid node acc ->
     if node.busy = false then (
       node.busy <- true;

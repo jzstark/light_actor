@@ -29,11 +29,12 @@ module Make
 
 
   type param_context = {
-    mutable my_uuid     : string;
-    mutable my_addr     : string;
-    mutable server_uuid : string;
-    mutable server_addr : string;
-    mutable book        : Actor_book.t;
+    mutable my_uuid      : string;
+    mutable my_addr      : string;
+    mutable server_uuid  : string;
+    mutable server_addr  : string;
+    mutable book         : Actor_book.t;
+    mutable barrier_args : int * int option (* staleness, sampling size *)
   }
 
 

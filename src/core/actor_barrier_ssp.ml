@@ -12,12 +12,12 @@ let sample nodes_kv p =
   Array.map (Array.get nodes_kv) idx
 
 
-module Make (P : Actor_barrier_sig.Param) = struct
+(* module Make (P : Actor_barrier_sig.Param) = struct *)
 
-  let pass book =
+  let pass s p book =
 
     let nodes_kv = Actor_param_utils.htbl_to_arr book in
-    let nodes_kv = match P.p with
+    let nodes_kv = match p with
     | Some p -> sample nodes_kv p
     | None   -> nodes_kv
     in
@@ -34,7 +34,7 @@ module Make (P : Actor_barrier_sig.Param) = struct
 
     let passed = ref [||] in
     Array.iter (fun (uuid, node) ->
-      if (fastest - node.step <= P.s && node.step - slowest <= P.s
+      if (fastest - node.step <= s && node.step - slowest <= s
         && node.busy = false) then (
         node.busy <- true;
         passed := Array.append !passed [| uuid |]
@@ -48,4 +48,4 @@ module Make (P : Actor_barrier_sig.Param) = struct
     Actor_book.set_busy book uuid false;
     Actor_book.set_step book uuid (step + 1)
 
-end
+(* end *)

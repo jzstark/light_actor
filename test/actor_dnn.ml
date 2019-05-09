@@ -185,13 +185,7 @@ end
 include Actor_param_types.Make (Impl)
 
 
-module BP = struct
-  let s = 3
-  let p = None
-end
-
-
-module M = Actor_param.Make (Actor_net_zmq) (Actor_sys_unix) (Impl) (Actor_barrier_ssp.Make (BP))
+module M = Actor_param.Make (Actor_net_zmq) (Actor_sys_unix) (Impl) (Actor_barrier_ssp)
 
 
 let ip_of_uuid id =
@@ -235,6 +229,8 @@ let main args =
   if my_uuid <> server_uuid then
     Actor_book.set_addr book my_uuid my_addr;
 
+  let barrier_args = (3, None) in
+
   (* define parameter server context *)
   let context = {
     my_uuid;
@@ -242,6 +238,7 @@ let main args =
     server_uuid;
     server_addr;
     book;
+    barrier_args;
   }
   in
 
